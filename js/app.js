@@ -42,27 +42,27 @@ function getFestivosColombia(year) {
     // Jueves Santo (2 días antes de Pascua)
     const juevesSanto = new Date(pascua);
     juevesSanto.setDate(pascua.getDate() - 3);
-    festivos.add(juevesSanto.toISOString().split('T')[0]);
+    festivos.add(fechaLocalStr(juevesSanto));
     
     // Viernes Santo (1 día antes de Pascua)
     const viernesSanto = new Date(pascua);
     viernesSanto.setDate(pascua.getDate() - 2);
-    festivos.add(viernesSanto.toISOString().split('T')[0]);
+    festivos.add(fechaLocalStr(viernesSanto));
     
     // Ascensión (40 días después de Pascua)
     const ascension = new Date(pascua);
     ascension.setDate(pascua.getDate() + 40);
-    festivos.add(ascension.toISOString().split('T')[0]);
+    festivos.add(fechaLocalStr(ascension));
     
     // Corpus Christi (60 días después de Pascua)
     const corpusChristi = new Date(pascua);
     corpusChristi.setDate(pascua.getDate() + 60);
-    festivos.add(corpusChristi.toISOString().split('T')[0]);
+    festivos.add(fechaLocalStr(corpusChristi));
     
     // Sagrado Corazón (68 días después de Pascua)
     const sagradoCorazon = new Date(pascua);
     sagradoCorazon.setDate(pascua.getDate() + 68);
-    festivos.add(sagradoCorazon.toISOString().split('T')[0]);
+    festivos.add(fechaLocalStr(sagradoCorazon));
     
     // Festivos que se mueven al lunes siguiente si caen en domingo
     const festivosMovibles = [
@@ -81,31 +81,30 @@ function getFestivosColombia(year) {
         if (fecha.getDay() === 0) {
             fecha.setDate(fecha.getDate() + 1);
         }
-        festivos.add(fecha.toISOString().split('T')[0]);
+        festivos.add(fechaLocalStr(fecha));
     });
     
     return festivos;
 }
 
-// Verificar si una fecha es día hábil (NO es sábado, domingo ni festivo)
+// Fecha en formato YYYY-MM-DD usando componentes locales (evita desfase por zona horaria)
+function fechaLocalStr(fecha) {
+    return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+}
+
+// Verificar si una fecha es día hábil (NO es sábado, domingo ni festivo de Colombia)
 function esDiaHabil(fecha) {
     const diaSemana = fecha.getDay();
-    // EXCLUIR sábados (6) y domingos (0) - NO se cuentan como días hábiles
-    if (diaSemana === 0 || diaSemana === 6) return false;
+    if (diaSemana === 0 || diaSemana === 6) return false; // sábado y domingo no se trabajan
     
-    // Verificar si es festivo de Colombia
-    const fechaStr = fecha.toISOString().split('T')[0];
+    const fechaStr = fechaLocalStr(fecha);
     const year = fecha.getFullYear();
     const festivos = getFestivosColombia(year);
+    if (festivos.has(fechaStr)) return false;
     
-    // También verificar festivos del año anterior y siguiente por si acaso
-    if (!festivos.has(fechaStr)) {
-        const festivosAnterior = getFestivosColombia(year - 1);
-        const festivosSiguiente = getFestivosColombia(year + 1);
-        return !festivosAnterior.has(fechaStr) && !festivosSiguiente.has(fechaStr);
-    }
-    
-    return false;
+    const festivosAnterior = getFestivosColombia(year - 1);
+    const festivosSiguiente = getFestivosColombia(year + 1);
+    return !festivosAnterior.has(fechaStr) && !festivosSiguiente.has(fechaStr);
 }
 
 // Inicializar select de años dinámicamente
@@ -350,23 +349,18 @@ async function exportToExcel() {
     saveAs(new Blob([buffer]), `Sinfonia_${currentTemplate}_${meses[currentMonth]}.xlsx`);
 }
 
-// --- LÓGICA ---
+// --- VENCIMIENTO: respeta festivos y días que no se trabajan (sábado, domingo, festivos Colombia) ---
+// Fecha de vencimiento = fecha factura + 22 días HÁBILES (solo lunes a viernes no festivos).
 function calcExpiry(dStr) {
-    let d = new Date(dStr + 'T00:00:00'); 
-    if (isNaN(d)) return '';
+    let d = new Date(dStr + 'T12:00:00');
+    if (isNaN(d.getTime())) return '';
     
     let c = 0;
-    const year = d.getFullYear();
-    const festivos = getFestivosColombia(year);
-    
     while (c < 22) {
         d.setDate(d.getDate() + 1);
-        // Contar SOLO días hábiles: excluye sábados, domingos y festivos de Colombia
-        if (esDiaHabil(d)) {
-            c++;
-        }
+        if (esDiaHabil(d)) c++;
     }
-    return d.toISOString().split('T')[0];
+    return fechaLocalStr(d);
 }
 
 function calcRemaining(exp) {
@@ -635,30 +629,9 @@ function updateField(id, field, val) {
                                 // Empaquetado (n=2) o Radicación (n=3) - actualizar registro existente
                                 const existing = dataMap.get(id);
                                 if(existing) {
-                                    // Tomar la fecha tal como viene del Excel, sin formatear
+                                    // Misma regla que FEC_FACTURA: fecha tal cual, sin zona horaria; 23:59 -> día siguiente
                                     const fechaOriginal = row.FECHA || row.FECHA_ENTREGA || row.FEC_ENTREGA;
-                                    let fechaStr = '';
-                                    
-                                    if (fechaOriginal) {
-                                        // Si es string, usarlo directamente
-                                        if (typeof fechaOriginal === 'string') {
-                                            fechaStr = fechaOriginal.trim();
-                                        } 
-                                        // Si es número (serial de Excel), convertirlo simplemente
-                                        else if (typeof fechaOriginal === 'number') {
-                                            const fechaExcel = parseExcelDate(fechaOriginal);
-                                            fechaStr = formatearFechaLocal(fechaExcel);
-                                        }
-                                        // Si es Date, formatearlo
-                                        else if (fechaOriginal instanceof Date) {
-                                            fechaStr = formatearFechaLocal(fechaOriginal);
-                                        }
-                                        // Cualquier otro caso, convertir a string
-                                        else {
-                                            fechaStr = String(fechaOriginal);
-                                        }
-                                    }
-                                    
+                                    const fechaStr = fechaFacturaEfectivaDesdeFEC(fechaOriginal);
                                     if(n===2) { 
                                         existing.estadoEmp = 'ENTREGADO'; 
                                         existing.fechaEmp = fechaStr; 
@@ -737,30 +710,9 @@ function updateField(id, field, val) {
                         store.get([currentTemplate, id]).onsuccess = ev => { 
                             const f = ev.target.result; 
                             if(f){ 
-                                // Tomar la fecha tal como viene del Excel, sin formatear
+                                // Misma regla que FEC_FACTURA: fecha tal cual, sin zona horaria; 23:59 -> día siguiente
                                 const fechaOriginal = row.FECHA || row.FECHA_ENTREGA || row.FEC_ENTREGA;
-                                let fechaStr = '';
-                                
-                                if (fechaOriginal) {
-                                    // Si es string, usarlo directamente
-                                    if (typeof fechaOriginal === 'string') {
-                                        fechaStr = fechaOriginal.trim();
-                                    } 
-                                    // Si es número (serial de Excel), convertirlo simplemente
-                                    else if (typeof fechaOriginal === 'number') {
-                                        const fechaExcel = parseExcelDate(fechaOriginal);
-                                        fechaStr = formatearFechaLocal(fechaExcel);
-                                    }
-                                    // Si es Date, formatearlo
-                                    else if (fechaOriginal instanceof Date) {
-                                        fechaStr = formatearFechaLocal(fechaOriginal);
-                                    }
-                                    // Cualquier otro caso, convertir a string
-                                    else {
-                                        fechaStr = String(fechaOriginal);
-                                    }
-                                }
-                                
+                                const fechaStr = fechaFacturaEfectivaDesdeFEC(fechaOriginal);
                                 if(n===2) { f.estadoEmp = 'ENTREGADO'; f.fechaEmp = fechaStr; }
                                 if(n===3) { f.estadoRad = 'ENTREGADO'; f.fechaRad = fechaStr; }
                                 store.put(f); 
@@ -846,30 +798,9 @@ if (!excel4Element) {
                     json.forEach(row => {
                         const facturaId = String(row['ListadoCxC.CxC.Factura'] || '');
                         if(facturaId) {
-                            // Tomar la fecha tal como viene del Excel (ListadoCxC.CxC.Fecha)
+                            // Misma regla que FEC_FACTURA: fecha tal cual, sin zona horaria; 23:59 -> día siguiente
                             const fechaOriginal = row['ListadoCxC.CxC.Fecha'] || row.FechaDocumento;
-                            let fechaStr = '';
-                            
-                            if (fechaOriginal) {
-                                // Si es string, usarlo directamente
-                                if (typeof fechaOriginal === 'string') {
-                                    fechaStr = fechaOriginal.trim();
-                                } 
-                                // Si es número (serial de Excel), convertirlo simplemente
-                                else if (typeof fechaOriginal === 'number') {
-                                    const fechaExcel = parseExcelDate(fechaOriginal);
-                                    fechaStr = formatearFechaLocal(fechaExcel);
-                                }
-                                // Si es Date, formatearlo
-                                else if (fechaOriginal instanceof Date) {
-                                    fechaStr = formatearFechaLocal(fechaOriginal);
-                                }
-                                // Cualquier otro caso, convertir a string
-                                else {
-                                    fechaStr = String(fechaOriginal);
-                                }
-                            }
-                            
+                            const fechaStr = fechaFacturaEfectivaDesdeFEC(fechaOriginal);
                             facturasEnExcel.set(facturaId, {
                                 estadoRadicacion: 'Radicado',
                                 fechaRadicacion: fechaStr
@@ -941,30 +872,9 @@ if (!excel4Element) {
                     const f = ev.target.result;
                     if(f) {
                         f.estadoRadicacion = 'Radicado';
-                        // Tomar la fecha tal como viene del Excel (ListadoCxC.CxC.Fecha)
+                        // Misma regla que FEC_FACTURA: fecha tal cual, sin zona horaria; 23:59 -> día siguiente
                         const fechaOriginal = row['ListadoCxC.CxC.Fecha'] || row.FechaDocumento;
-                        let fechaStr = '';
-                        
-                        if (fechaOriginal) {
-                            // Si es string, usarlo directamente
-                            if (typeof fechaOriginal === 'string') {
-                                fechaStr = fechaOriginal.trim();
-                            } 
-                            // Si es número (serial de Excel), convertirlo simplemente
-                            else if (typeof fechaOriginal === 'number') {
-                                const fechaExcel = parseExcelDate(fechaOriginal);
-                                fechaStr = formatearFechaLocal(fechaExcel);
-                            }
-                            // Si es Date, formatearlo
-                            else if (fechaOriginal instanceof Date) {
-                                fechaStr = formatearFechaLocal(fechaOriginal);
-                            }
-                            // Cualquier otro caso, convertir a string
-                            else {
-                                fechaStr = String(fechaOriginal);
-                            }
-                        }
-                        
+                        const fechaStr = fechaFacturaEfectivaDesdeFEC(fechaOriginal);
                         if (fechaStr) {
                             f.fechaRadicacion = fechaStr;
                         }
@@ -1046,42 +956,60 @@ function renderTabs() {
     });
 }
 
-// Para FEC_FACTURA: obtiene la fecha efectiva (solo fecha) considerando fecha y hora.
-// Regla: si la hora es 11:59 PM o después, la factura corresponde al DÍA SIGUIENTE.
-// Así se evita que 12/02 12:00 AM aparezca como 11/02 por zona horaria.
+// Usada para TODAS las fechas que subes (FEC_FACTURA, FECHA/FECHA_ENTREGA, ListadoCxC.CxC.Fecha, etc.).
+// Guarda la fecha tal como la das, SIN aplicar zona horaria.
+// Solo se aplica este parámetro: si la hora es 11:59 PM o después -> va al DÍA SIGUIENTE.
 function fechaFacturaEfectivaDesdeFEC(v) {
     if (v === undefined || v === null || v === '') return '';
     const FRACCION_23_59 = (23 * 60 + 59) / (24 * 60); // 0.9993 aprox.
 
     if (typeof v === 'number' && !isNaN(v)) {
-        // Serial de Excel: parte entera = día, fracción = hora del día
+        // Serial de Excel: fecha tal cual (sin zona horaria). Regla 23:59 -> día siguiente.
         let diaSerial = Math.floor(v);
         const fraccion = v - diaSerial;
-        if (fraccion >= FRACCION_23_59) diaSerial += 1; // Después de 23:59 -> día siguiente
-        const excelEpoch = new Date(1899, 11, 30, 12, 0, 0);
-        const d = new Date(excelEpoch.getTime() + (diaSerial - 1) * 86400 * 1000);
-        const year = d.getFullYear();
-        const month = d.getMonth();
-        const day = d.getDate();
+        if (fraccion >= FRACCION_23_59) diaSerial += 1;
+        const d = new Date((diaSerial - 25569) * 86400 * 1000);
+        const year = d.getUTCFullYear();
+        const month = d.getUTCMonth();
+        const day = d.getUTCDate();
         return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
     if (v instanceof Date && !isNaN(v.getTime())) {
-        let year = v.getFullYear();
-        let month = v.getMonth();
-        let day = v.getDate();
-        const h = v.getHours();
-        const m = v.getMinutes();
+        // Tomar fecha y hora tal cual (UTC = como viene del dato), sin convertir a zona horaria local.
+        let year = v.getUTCFullYear();
+        let month = v.getUTCMonth();
+        let day = v.getUTCDate();
+        const h = v.getUTCHours();
+        const m = v.getUTCMinutes();
         if (h >= 23 && m >= 59) {
-            const siguiente = new Date(year, month, day + 1);
-            year = siguiente.getFullYear();
-            month = siguiente.getMonth();
-            day = siguiente.getDate();
+            const siguiente = new Date(Date.UTC(year, month, day + 1));
+            year = siguiente.getUTCFullYear();
+            month = siguiente.getUTCMonth();
+            day = siguiente.getUTCDate();
         }
         return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
     if (typeof v === 'string') {
+        // DD/MM/YYYY o D/M/YYYY (con o sin hora) - común en Excel en español
+        const dmyMatch = v.trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+        if (dmyMatch) {
+            let y = parseInt(dmyMatch[3], 10);
+            let mo = parseInt(dmyMatch[2], 10) - 1;
+            let d = parseInt(dmyMatch[1], 10);
+            if (dmyMatch[4] !== undefined && dmyMatch[5] !== undefined) {
+                const h = parseInt(dmyMatch[4], 10);
+                const min = parseInt(dmyMatch[5], 10);
+                if (h >= 23 && min >= 59) {
+                    const siguiente = new Date(y, mo, d + 1);
+                    y = siguiente.getFullYear();
+                    mo = siguiente.getMonth();
+                    d = siguiente.getDate();
+                }
+            }
+            return `${y}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        }
         // ISO con Z: usar la fecha del string (YYYY-MM-DD) para no cambiar de día por UTC
         const isoDateOnly = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (isoDateOnly) {
@@ -1103,16 +1031,17 @@ function fechaFacturaEfectivaDesdeFEC(v) {
         }
         const parsed = new Date(v);
         if (!isNaN(parsed.getTime())) {
-            let year = parsed.getFullYear();
-            let month = parsed.getMonth();
-            let day = parsed.getDate();
-            const h = parsed.getHours();
-            const m = parsed.getMinutes();
+            // Fecha tal cual (UTC), sin zona horaria; solo regla 23:59 -> día siguiente.
+            let year = parsed.getUTCFullYear();
+            let month = parsed.getUTCMonth();
+            let day = parsed.getUTCDate();
+            const h = parsed.getUTCHours();
+            const m = parsed.getUTCMinutes();
             if (h >= 23 && m >= 59) {
-                const siguiente = new Date(year, month, day + 1);
-                year = siguiente.getFullYear();
-                month = siguiente.getMonth();
-                day = siguiente.getDate();
+                const siguiente = new Date(Date.UTC(year, month, day + 1));
+                year = siguiente.getUTCFullYear();
+                month = siguiente.getUTCMonth();
+                day = siguiente.getUTCDate();
             }
             return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         }
@@ -1124,26 +1053,22 @@ function fechaFacturaEfectivaDesdeFEC(v) {
 function parseExcelDate(v) {
     if (!v) return null;
     
-    // Si ya es un objeto Date, extraer componentes directamente
+    // Si ya es un objeto Date: usar fecha tal cual (UTC), sin aplicar zona horaria.
     if (v instanceof Date) {
         if (isNaN(v.getTime())) return null;
-        // Extraer componentes locales directamente
-        const year = v.getFullYear();
-        const month = v.getMonth();
-        const day = v.getDate();
-        // Crear nueva fecha en hora local (mediodía para evitar problemas)
+        const year = v.getUTCFullYear();
+        const month = v.getUTCMonth();
+        const day = v.getUTCDate();
         return new Date(year, month, day, 12, 0, 0);
     }
     
-    // Si es un número (serial de Excel), convertir correctamente
+    // Serial de Excel: fecha tal cual (25569 = días hasta 1970-01-01), sin zona horaria.
     if (!isNaN(v) && typeof v === 'number') {
-        // Excel usa serial dates donde 1 = 1 de enero de 1900
-        // Epoch: 30 de diciembre de 1899 en hora LOCAL (mediodía)
-        const excelEpoch = new Date(1899, 11, 30, 12, 0, 0);
-        const date = new Date(excelEpoch.getTime() + (v - 1) * 86400 * 1000);
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        const day = date.getDate();
+        const serial = Math.floor(v);
+        const date = new Date((serial - 25569) * 86400 * 1000);
+        const year = date.getUTCFullYear();
+        const month = date.getUTCMonth();
+        const day = date.getUTCDate();
         return new Date(year, month, day, 12, 0, 0);
     }
     
@@ -1176,24 +1101,12 @@ function parseExcelDate(v) {
             }
         }
         
-        // Como último recurso, intentar parseo directo pero extraer componentes locales inmediatamente
+        // Último recurso: extraer fecha tal cual (UTC), sin aplicar zona horaria.
         const parsed = new Date(v);
         if (!isNaN(parsed.getTime())) {
-            // Si el string tiene formato ISO (YYYY-MM-DD), puede ser interpretado como UTC
-            // Extraer componentes usando métodos UTC si el string es ISO, sino usar locales
-            let year, month, day;
-            if (v.includes('T') || /^\d{4}-\d{2}-\d{2}$/.test(v.trim())) {
-                // Es formato ISO, usar UTC para extraer componentes
-                year = parsed.getUTCFullYear();
-                month = parsed.getUTCMonth();
-                day = parsed.getUTCDate();
-            } else {
-                // No es ISO, usar locales
-                year = parsed.getFullYear();
-                month = parsed.getMonth();
-                day = parsed.getDate();
-            }
-            // Crear nueva fecha en hora local con los componentes extraídos
+            const year = parsed.getUTCFullYear();
+            const month = parsed.getUTCMonth();
+            const day = parsed.getUTCDate();
             return new Date(year, month, day, 12, 0, 0);
         }
     }

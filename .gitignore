@@ -1,0 +1,11 @@
+# Windows
+nul
+CON
+PRN
+*.lnk
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

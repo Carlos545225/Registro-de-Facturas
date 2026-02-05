@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinfonía Salud | Pro Live & Fast</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest" onload="if(typeof window.initLucideIcons === 'function') window.initLucideIcons();"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoadedCallback()"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div id="toast-container"></div>
+<div id="filter-menu-container">
+    <div class="p-2 border-b">
+        <input type="text" id="filterSearchInput" placeholder="Buscar valor..." class="w-full p-2 text-xs border rounded-md outline-none focus:ring-2 focus:ring-indigo-500/20">
+    </div>
+    <div id="filterList" class="overflow-y-auto flex-1 p-1 max-h-[300px]"></div>
+    <div class="p-2 border-t flex justify-between bg-slate-50">
+        <button onclick="clearFilterColumn()" class="text-[10px] text-red-500 font-bold">Limpiar</button>
+        <button onclick="closeFilterMenu()" class="text-[10px] text-slate-500 font-bold">Cerrar</button>
+    </div>
+</div>
+
+<div class="app-layout">
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-center shadow-sm z-50">
+            <div class="flex items-center gap-2">
+                <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-200"><i data-lucide="layout-grid"></i></div>
+                <h1 class="text-lg font-extrabold italic uppercase tracking-tighter">Sinfonía <span class="text-indigo-600">Salud</span></h1>
+        </div>
+    </header>
+
+    <div class="content-area">
+        <!-- Página Principal / Dashboard -->
+        <div class="h-full flex flex-col items-center justify-center p-6 md:p-12 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-50">
+            <div class="text-center max-w-4xl w-full">
+                <!-- Logo y Título -->
+                <div class="mb-10">
+                    <div class="bg-gradient-to-br from-indigo-600 via-indigo-600 to-indigo-700 p-4 md:p-5 rounded-xl md:rounded-2xl text-white shadow-lg shadow-indigo-200/50 inline-block mb-5 transform hover:scale-105 transition-all duration-300">
+                        <i data-lucide="layout-grid" class="w-12 h-12 md:w-14 md:h-14"></i>
+                    </div>
+                    <h2 class="text-3xl md:text-5xl font-extrabold text-slate-900 mb-2 tracking-tight">Sinfonía <span class="text-indigo-600">Salud</span></h2>
+                    <p class="text-base md:text-lg text-slate-600 font-semibold mb-1">Sistema de Gestión y Control de Facturación</p>
+                    <p class="text-xs md:text-sm text-slate-500 font-medium">Pro Live & Fast</p>
+        </div>
+
+                <!-- Botones de Navegación -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-10 max-w-2xl mx-auto">
+                    <a href="ambulatorio.html" class="group bg-white border-2 border-indigo-600 hover:border-indigo-700 hover:bg-gradient-to-br hover:from-indigo-50 hover:to-white text-indigo-600 hover:text-indigo-700 px-8 py-5 md:px-10 md:py-6 rounded-xl md:rounded-2xl flex flex-col items-center gap-2.5 text-sm md:text-base font-bold shadow-md hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
+                        <div class="bg-indigo-100 group-hover:bg-indigo-200 p-3 md:p-4 rounded-lg md:rounded-xl transition-all duration-300 group-hover:scale-110">
+                            <i data-lucide="activity" class="w-8 h-8 md:w-10 md:h-10"></i>
+                        </div>
+                        <span class="text-base md:text-lg">Ambulatorio</span>
+                        <p class="text-[10px] md:text-xs text-slate-500 font-normal">Gestión de facturas ambulatorias</p>
+                    </a>
+                    <a href="urgencias.html" class="group bg-white border-2 border-red-600 hover:border-red-700 hover:bg-gradient-to-br hover:from-red-50 hover:to-white text-red-600 hover:text-red-700 px-8 py-5 md:px-10 md:py-6 rounded-xl md:rounded-2xl flex flex-col items-center gap-2.5 text-sm md:text-base font-bold shadow-md hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
+                        <div class="bg-red-100 group-hover:bg-red-200 p-3 md:p-4 rounded-lg md:rounded-xl transition-all duration-300 group-hover:scale-110">
+                            <i data-lucide="alert-circle" class="w-8 h-8 md:w-10 md:h-10"></i>
+                        </div>
+                        <span class="text-base md:text-lg">Urgencias</span>
+                        <p class="text-[10px] md:text-xs text-slate-500 font-normal">Gestión de facturas de urgencias</p>
+                    </a>
+        </div>
+
+                <!-- Créditos -->
+                <div class="border-t border-slate-200/60 pt-5 mt-8">
+                    <p class="text-[10px] md:text-xs text-slate-400 font-medium">
+                        Desarrollado por <span class="text-indigo-600 font-bold">Carlos Eduardo Correa Baloco</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="js/googleSheets.js"></script>
+<script src="js/app.js"></script>
+<script>
+// Inicializar iconos cuando todo esté cargado
+(function initIcons() {
+    if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    } else {
+        setTimeout(initIcons, 100);
+    }
+})();
+window.addEventListener('load', function() {
+    if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
+});
+</script>
+</body>
+</html>

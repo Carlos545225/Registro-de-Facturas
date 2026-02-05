@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; color: #1e293b; overflow: hidden; }
+.app-layout { height: 100vh; display: flex; flex-direction: column; }
+.content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 0 1rem 1rem 1rem; }
+.table-wrapper { flex: 1; overflow: auto; overflow-x: auto; overflow-y: auto; background: white; border-radius: 12px 12px 0 0; border: 1px solid #e2e8f0; position: relative; }
+table { width: 100%; min-width: 1400px; border-collapse: separate; border-spacing: 0; }
+thead th { position: sticky; top: 0; z-index: 40; background: #f8fafc; font-size: 11px; color: #64748b; padding: 12px 8px; border-bottom: 2px solid #e2e8f0; border-right: 1px solid #e2e8f0; white-space: nowrap; }
+tbody td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; font-size: 11px; }
+tr:hover { background-color: #f8fafc; }
+#filter-menu-container { position: fixed; z-index: 1000; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); width: 240px; max-height: 400px; display: none; flex-direction: column; overflow: hidden; }
+.filter-item { display: flex; align-items: center; gap: 10px; padding: 6px 10px; cursor: pointer; font-size: 11px; border-radius: 6px; }
+.filter-item:hover { background: #f1f5f9; }
+.pagination-bar { background: white; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; }
+#toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; }
+.toast { background: white; border-radius: 12px; padding: 12px 16px; border-left: 4px solid #6366f1; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s ease-out forwards; min-width: 280px; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.status-pill { padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+

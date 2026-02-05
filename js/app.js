@@ -559,6 +559,12 @@ function updateField(id, field, val) {
                 const workbook = XLSX.read(evt.target.result, { type: 'binary' });
                 const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                 
+                // Log para debugging: mostrar columnas detectadas
+                if(json.length > 0) {
+                    const columnas = Object.keys(json[0]);
+                    console.log(`📋 Columnas detectadas en Excel (${n===1?'Alimentación':n===2?'Facturador':n===3?'Empaquetamiento':'Radicación'}):`, columnas);
+                }
+                
                 // Si Google Sheets está disponible, trabajar directamente con él
                 if (typeof readFromGoogleSheets === 'function' && typeof writeToGoogleSheets === 'function' && typeof ensureAuthenticated === 'function') {
                     try {
@@ -587,8 +593,17 @@ function updateField(id, field, val) {
                         
                         // Procesar datos del Excel
                         json.forEach(row => {
-                            const id = String(row.FACTURA || row.NÚMERO_DE_FACTURA || ''); 
-                            if(!id) return;
+                            // Buscar número de factura en múltiples columnas posibles
+                            const id = String(row.FACTURA || row.NÚMERO_DE_FACTURA || row.FACTURA_NRO || row.N_FACTURA || 
+                                            row['FACTURA'] || row['NÚMERO_DE_FACTURA'] || row['Número de Factura'] ||
+                                            Object.values(row).find((val, idx) => {
+                                                const header = Object.keys(row)[idx];
+                                                return header && (header.toUpperCase().includes('FACTURA') || header.toUpperCase().includes('NÚMERO'));
+                                            }) || ''); 
+                            if(!id || id === 'undefined' || id === 'null') {
+                                console.warn('⚠️ Fila sin número de factura válido:', row);
+                                return;
+                            }
                             
                             if(n===1) {
                                 // Alimentación - fecha = FEC_FACTURA (fecha y hora); después de 23:59 -> día siguiente
@@ -629,20 +644,43 @@ function updateField(id, field, val) {
                                 // Empaquetado (n=2) o Radicación (n=3) - actualizar registro existente
                                 const existing = dataMap.get(id);
                                 if(existing) {
-                                    // Misma regla que FEC_FACTURA: fecha tal cual, sin zona horaria; 23:59 -> día siguiente
-                                    const fechaOriginal = row.FECHA || row.FECHA_ENTREGA || row.FEC_ENTREGA;
+                                    // Buscar fecha en múltiples columnas posibles
+                                    const fechaOriginal = row.FECHA || row.FECHA_ENTREGA || row.FEC_ENTREGA || 
+                                                          row.FECHA_EMPAQUETAMIENTO || row.FECHA_RADICACION ||
+                                                          row['FECHA'] || row['FECHA_ENTREGA'] || row['FEC_ENTREGA'] ||
+                                                          Object.values(row).find((val, idx) => {
+                                                              const header = Object.keys(row)[idx];
+                                                              return header && (header.toUpperCase().includes('FECHA') || header.toUpperCase().includes('FEC'));
+                                                          });
                                     const fechaStr = fechaFacturaEfectivaDesdeFEC(fechaOriginal);
                                     if(n===2) { 
                                         existing.estadoEmp = 'ENTREGADO'; 
-                                        existing.fechaEmp = fechaStr; 
+                                        existing.fechaEmp = fechaStr || ''; 
+                                        console.log(`✅ Facturador actualizado: ${id} - Estado: ENTREGADO, Fecha: ${fechaStr}`);
                                     }
                                     if(n===3) { 
                                         existing.estadoRad = 'ENTREGADO'; 
-                                        existing.fechaRad = fechaStr; 
+                                        existing.fechaRad = fechaStr || ''; 
+                                        console.log(`✅ Empaquetamiento actualizado: ${id} - Estado: ENTREGADO, Fecha: ${fechaStr}`);
                                     }
+                                } else {
+                                    console.warn(`⚠️ Factura ${id} no encontrada en el sistema. Debe cargarse primero con Alimentación.`);
                                 }
                             }
                         });
+                        
+                        // Contar facturas actualizadas
+                        let actualizadas = 0;
+                        let noEncontradas = 0;
+                        if(n===2 || n===3) {
+                            json.forEach(row => {
+                                const id = String(row.FACTURA || row.NÚMERO_DE_FACTURA || row.FACTURA_NRO || row.N_FACTURA || '');
+                                if(!id) return;
+                                const existing = dataMap.get(id);
+                                if(existing) actualizadas++;
+                                else noEncontradas++;
+                            });
+                        }
                         
                         // Convertir mapa a array y guardar en Google Sheets
                         const allData = Array.from(dataMap.values());
@@ -660,9 +698,17 @@ function updateField(id, field, val) {
                             console.log('Datos guardados en caché local');
                         };
                         
-                        notify("Éxito", `Procesados ${json.length} registros y guardados en Google Sheets`, "success");
+                        // Mensaje informativo según el tipo de archivo
+                        if(n===1) {
+                            notify("Éxito", `Procesados ${json.length} registros y guardados en Google Sheets`, "success");
+                        } else if(n===2) {
+                            notify("Éxito", `Facturador: ${actualizadas} actualizadas${noEncontradas > 0 ? ` | ${noEncontradas} no encontradas` : ''}`, "success");
+                        } else if(n===3) {
+                            notify("Éxito", `Empaquetamiento: ${actualizadas} actualizadas${noEncontradas > 0 ? ` | ${noEncontradas} no encontradas` : ''}`, "success");
+                        }
+                        
                         // Recargar datos desde Google Sheets para mostrar en la tabla
-                        await refreshUI();
+                        refreshUI();
                         // Limpiar input para permitir seleccionar el mismo archivo de nuevo
                         e.target.value = '';
                         return;
@@ -676,9 +722,26 @@ function updateField(id, field, val) {
                 // Fallback a IndexedDB si Google Sheets no está disponible
                 const tx = db.transaction("facturas", "readwrite");
                 const store = tx.objectStore("facturas");
-                json.forEach(row => {
-                    const id = String(row.FACTURA || row.NÚMERO_DE_FACTURA || ''); if(!id) return;
+                let actualizadas = 0;
+                let noEncontradas = 0;
+                let procesadas = 0;
+                
+                // Procesar todas las filas
+                const promises = json.map(row => {
+                    // Buscar número de factura en múltiples columnas posibles
+                    const id = String(row.FACTURA || row.NÚMERO_DE_FACTURA || row.FACTURA_NRO || row.N_FACTURA || 
+                                    row['FACTURA'] || row['NÚMERO_DE_FACTURA'] || row['Número de Factura'] ||
+                                    Object.values(row).find((val, idx) => {
+                                        const header = Object.keys(row)[idx];
+                                        return header && (header.toUpperCase().includes('FACTURA') || header.toUpperCase().includes('NÚMERO'));
+                                    }) || '');
+                    if(!id || id === 'undefined' || id === 'null') {
+                        console.warn('⚠️ Fila sin número de factura válido:', row);
+                        return Promise.resolve();
+                    }
+                    
                     if(n===1) {
+                        procesadas++;
                         // Fecha de factura: FEC_FACTURA con fecha y hora; después de 23:59 -> día siguiente
                         const dateStr = fechaFacturaEfectivaDesdeFEC(row.FEC_FACTURA);
                         const d = dateStr ? parseExcelDate(dateStr) : null;
@@ -688,40 +751,77 @@ function updateField(id, field, val) {
                             yearValue = d.getFullYear().toString();
                             mesValue = d.getMonth();
                         }
-                        store.put({ 
-                            factura: id, 
-                            valor: row.VLR_FACTURADO||0, 
-                            fecha: dateStr, 
-                            vencimiento: calcExpiry(dateStr), 
-                            year: yearValue, 
-                            mes: mesValue, 
-                            entidad: row.PB_FACTURA||'N/A', 
-                            facturador: row.FACTURADOR||'N/A', 
-                            template: currentTemplate, 
-                            estadoEmp: 'PENDIENTE', 
-                            estadoRad: 'PENDIENTE', 
-                            fechaEmp: '', 
-                            fechaRad: '', 
-                            estadoRadicacion: 'Pendiente', 
-                            fechaRadicacion: '', 
-                            obs: '' 
+                        return new Promise((resolve) => {
+                            store.put({ 
+                                factura: id, 
+                                valor: row.VLR_FACTURADO||0, 
+                                fecha: dateStr, 
+                                vencimiento: calcExpiry(dateStr), 
+                                year: yearValue, 
+                                mes: mesValue, 
+                                entidad: row.PB_FACTURA||'N/A', 
+                                facturador: row.FACTURADOR||'N/A', 
+                                template: currentTemplate, 
+                                estadoEmp: 'PENDIENTE', 
+                                estadoRad: 'PENDIENTE', 
+                                fechaEmp: '', 
+                                fechaRad: '', 
+                                estadoRadicacion: 'Pendiente', 
+                                fechaRadicacion: '', 
+                                obs: '' 
+                            }).onsuccess = () => resolve();
                         });
                     } else {
-                        store.get([currentTemplate, id]).onsuccess = ev => { 
-                            const f = ev.target.result; 
-                            if(f){ 
-                                // Misma regla que FEC_FACTURA: fecha tal cual, sin zona horaria; 23:59 -> día siguiente
-                                const fechaOriginal = row.FECHA || row.FECHA_ENTREGA || row.FEC_ENTREGA;
-                                const fechaStr = fechaFacturaEfectivaDesdeFEC(fechaOriginal);
-                                if(n===2) { f.estadoEmp = 'ENTREGADO'; f.fechaEmp = fechaStr; }
-                                if(n===3) { f.estadoRad = 'ENTREGADO'; f.fechaRad = fechaStr; }
-                                store.put(f); 
-                            } 
-                        };
+                        procesadas++;
+                        return new Promise((resolve) => {
+                            store.get([currentTemplate, id]).onsuccess = ev => { 
+                                const f = ev.target.result; 
+                                if(f){ 
+                                    // Buscar fecha en múltiples columnas posibles
+                                    const fechaOriginal = row.FECHA || row.FECHA_ENTREGA || row.FEC_ENTREGA || 
+                                                          row.FECHA_EMPAQUETAMIENTO || row.FECHA_RADICACION ||
+                                                          row['FECHA'] || row['FECHA_ENTREGA'] || row['FEC_ENTREGA'] ||
+                                                          Object.values(row).find((val, idx) => {
+                                                              const header = Object.keys(row)[idx];
+                                                              return header && (header.toUpperCase().includes('FECHA') || header.toUpperCase().includes('FEC'));
+                                                          });
+                                    const fechaStr = fechaFacturaEfectivaDesdeFEC(fechaOriginal);
+                                    if(n===2) { 
+                                        f.estadoEmp = 'ENTREGADO'; 
+                                        f.fechaEmp = fechaStr || ''; 
+                                        console.log(`✅ Facturador actualizado: ${id} - Estado: ENTREGADO, Fecha: ${fechaStr}`);
+                                    }
+                                    if(n===3) { 
+                                        f.estadoRad = 'ENTREGADO'; 
+                                        f.fechaRad = fechaStr || ''; 
+                                        console.log(`✅ Empaquetamiento actualizado: ${id} - Estado: ENTREGADO, Fecha: ${fechaStr}`);
+                                    }
+                                    store.put(f).onsuccess = () => {
+                                        actualizadas++;
+                                        resolve();
+                                    };
+                                } else {
+                                    noEncontradas++;
+                                    console.warn(`⚠️ Factura ${id} no encontrada en el sistema. Debe cargarse primero con Alimentación.`);
+                                    resolve();
+                                }
+                            };
+                        });
                     }
                 });
+                
+                // Esperar a que todas las operaciones terminen
+                await Promise.all(promises);
+                
                 tx.oncomplete = () => { 
-                    notify("Éxito", "Procesado y guardado localmente", "success"); 
+                    // Mensaje informativo según el tipo de archivo
+                    if(n===1) {
+                        notify("Éxito", `Procesadas ${procesadas} facturas y guardadas localmente`, "success");
+                    } else if(n===2) {
+                        notify("Éxito", `Facturador: ${actualizadas} actualizadas${noEncontradas > 0 ? ` | ${noEncontradas} no encontradas` : ''}`, "success");
+                    } else if(n===3) {
+                        notify("Éxito", `Empaquetamiento: ${actualizadas} actualizadas${noEncontradas > 0 ? ` | ${noEncontradas} no encontradas` : ''}`, "success");
+                    }
                     refreshUI();
                     // Limpiar input para permitir seleccionar el mismo archivo de nuevo
                     e.target.value = '';

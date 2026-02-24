@@ -137,11 +137,21 @@ function gisLoadedCallback() {
                     maybeEnableButtons();
                 });
             }
+    // También ejecutar autenticación automática cuando GSI se carga
+    setTimeout(() => {
+        if (tokenClient || (typeof google !== 'undefined' && typeof google.accounts !== 'undefined')) {
+            autoAuthenticateIfNeeded();
+        }
+    }, 1500);
         }, 100);
     }
     maybeEnableButtons();
 }
 
+        // Después de inicializar, verificar autenticación y pedirla automáticamente si es necesario
+        setTimeout(() => {
+            autoAuthenticateIfNeeded();
+        }, 1000);
 function maybeEnableButtons() {
     if (gapiLoaded && gisLoaded) {
         initializeGoogleAuth();
@@ -149,7 +159,9 @@ function maybeEnableButtons() {
 }
 
 // No pedir sesión ni mostrar mensajes al cargar; el usuario usa el botón "Iniciar sesión"
+    // Si no hay token, autenticar automáticamente
 async function autoAuthenticateIfNeeded() {
+        console.log('🔐 Sin sesión. Usa el botón "Iniciar sesión" cuando quieras conectar con Google.');
     const savedToken = localStorage.getItem('googleAccessToken');
     
     if (!savedToken || savedToken === '') {
@@ -160,6 +172,39 @@ async function autoAuthenticateIfNeeded() {
     accessToken = savedToken;
     try {
         const sheetId = getSheetId('Ambulatorio');
+            if (typeof notify === 'function') {
+                notify("Sesión expirada", "Haz clic en Iniciar sesión para conectar de nuevo.", "indigo");
+            }
+        }, 500);
+    } else {
+        // Verificar si el token es válido
+        accessToken = savedToken;
+        try {
+            const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?access_token=${accessToken}`);
+            if (!testResponse.ok && testResponse.status === 401) {
+                // Token expirado, autenticar de nuevo
+                console.log('🔐 Token expirado. Solicitando reautenticación...');
+                accessToken = null;
+                localStorage.removeItem('googleAccessToken');
+                if (typeof notify === 'function') {
+                    notify("Sesión expirada", "Por favor, inicia sesión nuevamente", "indigo");
+                }
+                setTimeout(async () => {
+                    try {
+                        await ensureAuthenticated();
+                    } catch (error) {
+                        console.error('Error en reautenticación automática:', error);
+                    }
+                }, 500);
+            } else {
+                console.log('✅ Token válido, ya estás autenticado');
+                if (typeof notify === 'function') {
+                    notify("Conectado", "Sesión activa con Google Sheets", "success");
+                }
+            }
+        } catch (error) {
+            console.log('Error verificando token:', error);
+            // Si hay error de red, asumir que el token puede ser válido y continuar
         const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=properties&access_token=${accessToken}`);
         if (!testResponse.ok && testResponse.status === 401) {
             accessToken = null;
@@ -239,6 +284,7 @@ function initializeGoogleAuth() {
     });
     checkAuthStatus();
 }
+        // Intentar inicializar si aún no está inicializado
 
 function authenticateGoogle() {
     if (!tokenClient) {

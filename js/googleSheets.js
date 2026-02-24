@@ -59,6 +59,50 @@ function closeSettings() {
     document.getElementById('settings-modal').classList.add('hidden');
 }
 
+// Cerrar sesión de Google (borra token para que pida iniciar de nuevo)
+function cerrarSesionGoogle() {
+    accessToken = null;
+    localStorage.removeItem('googleAccessToken');
+    mostrarConfirmacionCierreSesion();
+}
+
+// Modal de confirmación "Sesión cerrada" con estilo acorde al diseño
+function ensureConfirmacionModal() {
+    let overlay = document.getElementById('confirmacion-overlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'confirmacion-overlay';
+    overlay.innerHTML = [
+        '<div id="confirmacion-modal" role="dialog" aria-labelledby="confirmacion-title" aria-modal="true">',
+        '  <div class="modal-header">',
+        '    <div class="modal-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>',
+        '    <h3 id="confirmacion-title">Sesión cerrada</h3>',
+        '  </div>',
+        '  <div class="modal-body">',
+        '    <p id="confirmacion-mensaje">Has cerrado sesión con Google. Deberás iniciar sesión de nuevo al entrar a Ambulatorio o Urgencias.</p>',
+        '  </div>',
+        '  <div class="modal-footer">',
+        '    <button type="button" class="btn-ok" id="confirmacion-ok">Entendido</button>',
+        '  </div>',
+        '</div>'
+    ].join('');
+    overlay.querySelector('#confirmacion-ok').onclick = () => {
+        overlay.classList.remove('visible');
+    };
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) overlay.classList.remove('visible');
+    });
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function mostrarConfirmacionCierreSesion() {
+    const overlay = ensureConfirmacionModal();
+    overlay.classList.add('visible');
+    const btn = document.getElementById('confirmacion-ok');
+    if (btn) btn.focus();
+}
+
 // Inicializar Google APIs
 function gapiLoadedCallback() {
     gapiLoaded = true;

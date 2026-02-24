@@ -38,6 +38,21 @@ tr:hover { background-color: #f8fafc; }
 #codigo-alimentacion-modal .modal-footer .btn-cancel:hover { background: #e2e8f0; }
 #codigo-alimentacion-modal .modal-footer .btn-ok { background: #4f46e5; color: white; }
 #codigo-alimentacion-modal .modal-footer .btn-ok:hover { background: #4338ca; }
+
+/* Modal confirmación (ej. sesión cerrada) - mismo diseño */
+#confirmacion-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); z-index: 9998; display: none; align-items: center; justify-content: center; padding: 1rem; animation: fadeIn 0.2s ease-out; }
+#confirmacion-overlay.visible { display: flex; }
+#confirmacion-modal { background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); border: 1px solid #e2e8f0; max-width: 380px; width: 100%; overflow: hidden; animation: modalSlide 0.25s ease-out; }
+#confirmacion-modal .modal-header { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); padding: 1.25rem 1.5rem; text-align: center; }
+#confirmacion-modal .modal-header .modal-icon { width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.5rem; }
+#confirmacion-modal .modal-header .modal-icon svg { width: 24px; height: 24px; color: white; }
+#confirmacion-modal .modal-header h3 { color: white; font-size: 1.1rem; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+#confirmacion-modal .modal-body { padding: 1.5rem 1.5rem 1.25rem; text-align: center; }
+#confirmacion-modal .modal-body p { margin: 0; font-size: 0.9rem; color: #64748b; line-height: 1.5; }
+#confirmacion-modal .modal-footer { padding: 0 1.5rem 1.5rem; display: flex; justify-content: center; }
+#confirmacion-modal .modal-footer .btn-ok { padding: 0.625rem 1.5rem; font-size: 0.8125rem; font-weight: 700; border-radius: 10px; cursor: pointer; border: none; font-family: inherit; background: #4f46e5; color: white; transition: all 0.2s; }
+#confirmacion-modal .modal-footer .btn-ok:hover { background: #4338ca; }
+
 /* Columna Observación más ancha */
 .col-observacion { min-width: 280px; max-width: 420px; width: 22%; }
 .col-observacion .obs-input { min-width: 100%; font-size: 11px; }

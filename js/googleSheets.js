@@ -158,55 +158,31 @@ function maybeEnableButtons() {
     }
 }
 
-// Función para autenticar automáticamente al iniciar la aplicación
+// No pedir sesión automáticamente al entrar; el usuario usa el botón "Iniciar sesión"
 async function autoAuthenticateIfNeeded() {
     const savedToken = localStorage.getItem('googleAccessToken');
     
-    // Si no hay token, autenticar automáticamente
     if (!savedToken || savedToken === '') {
-        console.log('🔐 No hay token de autenticación. Solicitando acceso a Google...');
-        if (typeof notify === 'function') {
-            notify("Autenticación requerida", "Iniciando sesión con Google...", "indigo");
-        }
-        
-        // Esperar un momento para que todo esté listo
-        setTimeout(async () => {
-            try {
-                await ensureAuthenticated();
-            } catch (error) {
-                console.error('Error en autenticación automática:', error);
+        console.log('🔐 Sin sesión. Usa el botón "Iniciar sesión" cuando quieras conectar con Google.');
+        return;
+    }
+    
+    // Si hay token guardado, validarlo en segundo plano (sin abrir popup)
+    accessToken = savedToken;
+    try {
+        const sheetId = getSheetId('Ambulatorio');
+        const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=properties&access_token=${accessToken}`);
+        if (!testResponse.ok && testResponse.status === 401) {
+            accessToken = null;
+            localStorage.removeItem('googleAccessToken');
+            if (typeof notify === 'function') {
+                notify("Sesión expirada", "Haz clic en Iniciar sesión para conectar de nuevo.", "indigo");
             }
-        }, 500);
-    } else {
-        // Verificar si el token es válido
-        accessToken = savedToken;
-        try {
-            const testResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?access_token=${accessToken}`);
-            if (!testResponse.ok && testResponse.status === 401) {
-                // Token expirado, autenticar de nuevo
-                console.log('🔐 Token expirado. Solicitando reautenticación...');
-                accessToken = null;
-                localStorage.removeItem('googleAccessToken');
-                if (typeof notify === 'function') {
-                    notify("Sesión expirada", "Por favor, inicia sesión nuevamente", "indigo");
-                }
-                setTimeout(async () => {
-                    try {
-                        await ensureAuthenticated();
-                    } catch (error) {
-                        console.error('Error en reautenticación automática:', error);
-                    }
-                }, 500);
-            } else {
-                console.log('✅ Token válido, ya estás autenticado');
-                if (typeof notify === 'function') {
-                    notify("Conectado", "Sesión activa con Google Sheets", "success");
-                }
-            }
-        } catch (error) {
-            console.log('Error verificando token:', error);
-            // Si hay error de red, asumir que el token puede ser válido y continuar
+        } else if (typeof notify === 'function') {
+            notify("Conectado", "Sesión activa con Google Sheets", "success");
         }
+    } catch (error) {
+        console.log('Error verificando token:', error);
     }
 }
 
@@ -289,11 +265,20 @@ function authenticateGoogle() {
         if (gapiLoaded && gisLoaded) {
             initializeGoogleAuth();
         } else {
-            notify("Error", "Las APIs de Google no están cargadas. Recarga la página.", "indigo");
+            if (typeof notify === 'function') notify("Error", "Las APIs de Google no están cargadas. Recarga la página.", "indigo");
             return;
         }
     }
     tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+// Botón "Iniciar sesión": abre el popup de Google (no se pide automáticamente al entrar)
+function iniciarSesionGoogle() {
+    if (window.location.protocol === 'file:') {
+        if (typeof notify === 'function') notify("Abrir desde una URL", "Para iniciar sesión con Google, abre la app desde http://localhost o tu servidor.", "indigo");
+        return;
+    }
+    authenticateGoogle();
 }
 
 // Función para asegurar autenticación automática

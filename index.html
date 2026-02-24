@@ -33,9 +33,14 @@
             <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-200"><i data-lucide="layout-grid"></i></div>
             <h1 class="text-lg font-extrabold italic uppercase tracking-tighter">Sinfonía <span class="text-indigo-600">Salud</span></h1>
         </div>
-        <button type="button" onclick="cerrarSesionGoogle()" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-all">
-            <i data-lucide="log-out" class="w-4 h-4"></i> Cerrar sesión
-        </button>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="iniciarSesionGoogle()" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-sm">
+                <i data-lucide="log-in" class="w-4 h-4"></i> Iniciar sesión
+            </button>
+            <button type="button" onclick="cerrarSesionGoogle()" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-all">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Cerrar sesión
+            </button>
+        </div>
     </header>
 
     <div class="content-area">

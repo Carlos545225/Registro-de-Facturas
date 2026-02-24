@@ -46,7 +46,8 @@
             </button>
             <select id="yearFilter" onchange="updateYear()" class="bg-slate-100 rounded-lg px-3 py-2 text-xs font-bold outline-none cursor-pointer"></select>
             <div class="h-6 w-[1px] bg-slate-200 mx-2"></div>
-            <label class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-xs font-bold shadow-md transition-all"><i data-lucide="file-up" class="w-4 h-4"></i> Alimentación<input type="file" id="excel1" class="hidden" accept=".xlsx, .xls"></label>
+            <button type="button" onclick="abrirAlimentacionSiCodigoCorrecto()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-xs font-bold shadow-md transition-all"><i data-lucide="file-up" class="w-4 h-4"></i> Alimentación</button>
+            <input type="file" id="excel1" class="hidden" accept=".xlsx, .xls">
             <label class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-xs font-bold shadow-md transition-all"><i data-lucide="package" class="w-4 h-4"></i> Facturador<input type="file" id="excel2" class="hidden" accept=".xlsx, .xls"></label>
             <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-xs font-bold shadow-md transition-all"><i data-lucide="send" class="w-4 h-4"></i> Empaquetamiento<input type="file" id="excel3" class="hidden" accept=".xlsx, .xls"></label>
             <label class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-xs font-bold shadow-md transition-all"><i data-lucide="file-check" class="w-4 h-4"></i> Radicador<input type="file" id="excel4" class="hidden" accept=".xlsx, .xls"></label>
@@ -78,7 +79,7 @@
                             <th class="text-center">Estado Radicación Entidad <i data-lucide="filter" class="inline w-3 h-3 ml-1 cursor-pointer" onclick="openFilter(event, 'estadoRadicacion')"></i></th>
                             <th>Fecha Radicación Entidad <i data-lucide="filter" class="inline w-3 h-3 ml-1 cursor-pointer" onclick="openFilter(event, 'fechaRadicacion')"></i></th>
                             <th class="text-center">Días Restantes <i data-lucide="filter" class="inline w-3 h-3 ml-1 cursor-pointer" onclick="openFilter(event, 'diasRest')"></i></th>
-                            <th>Observación <i data-lucide="filter" class="inline w-3 h-3 ml-1 cursor-pointer" onclick="openFilter(event, 'obs')"></i></th>
+                            <th class="col-observacion">Observación <i data-lucide="filter" class="inline w-3 h-3 ml-1 cursor-pointer" onclick="openFilter(event, 'obs')"></i></th>
                         </tr>
                     </thead>
                     <tbody id="table-body"></tbody>
@@ -103,6 +104,7 @@
     </div>
 </div>
 
+<script>window.CODIGO_ALIMENTACION = '1001';</script>
 <script src="js/googleSheets.js"></script>
 <script src="js/app.js"></script>
 </body>

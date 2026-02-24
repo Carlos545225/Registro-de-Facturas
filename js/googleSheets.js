@@ -105,7 +105,7 @@ function maybeEnableButtons() {
 
 // Función para autenticar automáticamente al iniciar la aplicación
 async function autoAuthenticateIfNeeded() {
-    const savedToken = sessionStorage.getItem('googleAccessToken');
+    const savedToken = localStorage.getItem('googleAccessToken');
     
     // Si no hay token, autenticar automáticamente
     if (!savedToken || savedToken === '') {
@@ -131,7 +131,7 @@ async function autoAuthenticateIfNeeded() {
                 // Token expirado, autenticar de nuevo
                 console.log('🔐 Token expirado. Solicitando reautenticación...');
                 accessToken = null;
-                sessionStorage.removeItem('googleAccessToken');
+                localStorage.removeItem('googleAccessToken');
                 if (typeof notify === 'function') {
                     notify("Sesión expirada", "Por favor, inicia sesión nuevamente", "indigo");
                 }
@@ -205,7 +205,7 @@ function initializeGoogleAuth() {
             }
             if (response.access_token) {
                 accessToken = response.access_token;
-                sessionStorage.setItem('googleAccessToken', accessToken);
+                localStorage.setItem('googleAccessToken', accessToken);
                 checkAuthStatus();
                 console.log('✅ Autenticación exitosa, token guardado');
                 if (typeof notify === 'function') {
@@ -244,7 +244,7 @@ function authenticateGoogle() {
 // Función para asegurar autenticación automática
 async function ensureAuthenticated() {
     // Verificar si ya hay un token guardado
-    const savedToken = sessionStorage.getItem('googleAccessToken');
+    const savedToken = localStorage.getItem('googleAccessToken');
     if (savedToken && savedToken !== '') {
         accessToken = savedToken;
         // Verificar si el token sigue siendo válido haciendo una petición simple
@@ -255,7 +255,7 @@ async function ensureAuthenticated() {
             } else if (testResponse.status === 401) {
                 // Token expirado, limpiar y autenticar de nuevo
                 accessToken = null;
-                sessionStorage.removeItem('googleAccessToken');
+                localStorage.removeItem('googleAccessToken');
             }
         } catch (error) {
             console.log('Error verificando token:', error);
@@ -319,7 +319,7 @@ async function ensureAuthenticated() {
 }
 
 function checkAuthStatus() {
-    const savedToken = sessionStorage.getItem('googleAccessToken');
+    const savedToken = localStorage.getItem('googleAccessToken');
     const statusEl = document.getElementById('auth-status');
     
     if (savedToken && savedToken !== '') {
@@ -372,7 +372,7 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
             if (response.status === 401 && attempt < maxRetries) {
                 console.log(`Token expirado, intentando reautenticar (intento ${attempt}/${maxRetries})...`);
                 accessToken = null;
-                sessionStorage.removeItem('googleAccessToken');
+                localStorage.removeItem('googleAccessToken');
                 
                 // Intentar reautenticar
                 const reauthSuccess = await ensureAuthenticated();
@@ -438,7 +438,7 @@ async function validateToken() {
         if (testResponse.status === 401) {
             // Token expirado
             accessToken = null;
-            sessionStorage.removeItem('googleAccessToken');
+            localStorage.removeItem('googleAccessToken');
             const reauthSuccess = await ensureAuthenticated();
             if (!reauthSuccess || !accessToken) {
                 throw new Error('Token expirado y no se pudo reautenticar');
@@ -454,7 +454,7 @@ async function validateToken() {
         } else if (accessToken && error.message.includes('401')) {
             // Solo intentar reautenticar si tenemos un token y fue error 401
             accessToken = null;
-            sessionStorage.removeItem('googleAccessToken');
+            localStorage.removeItem('googleAccessToken');
             const reauthSuccess = await ensureAuthenticated();
             if (!reauthSuccess || !accessToken) {
                 throw new Error('No se pudo validar ni reautenticar');
@@ -481,7 +481,7 @@ async function readFromGoogleSheets(template) {
         if (!response.ok) {
             if (response.status === 401) {
                 accessToken = null;
-                sessionStorage.removeItem('googleAccessToken');
+                localStorage.removeItem('googleAccessToken');
                 throw new Error('Sesión expirada. Por favor, autentícate nuevamente.');
             }
             const errorText = await response.text();
@@ -545,7 +545,7 @@ async function writeToGoogleSheets(template, data) {
         if (!response.ok) {
             if (response.status === 401) {
                 accessToken = null;
-                sessionStorage.removeItem('googleAccessToken');
+                localStorage.removeItem('googleAccessToken');
                 throw new Error('Sesión expirada. Por favor, autentícate nuevamente.');
             }
             const errorText = await response.text();

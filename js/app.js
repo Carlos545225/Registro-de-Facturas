@@ -463,7 +463,7 @@ function renderTable(data) {
             <td class="text-center"><span class="status-pill ${f.estadoRadicacion === 'Radicado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${f.estadoRadicacion || 'Pendiente'}</span></td>
             <td class="text-[10px] font-bold text-slate-500">${f.fechaRadicacion || '-'}</td>
             <td class="text-center"><span class="status-pill ${style}">${rest <= 0 ? 'VENCIDA' : rest + ' DH'}</span></td>
-            <td><input type="text" value="${obsEscaped}" onchange="updateField('${facturaEscaped}', 'obs', this.value)" class="w-full bg-transparent outline-none border-b border-transparent focus:border-indigo-300"></td>
+            <td class="col-observacion"><input type="text" value="${obsEscaped}" onchange="updateField('${facturaEscaped}', 'obs', this.value)" class="obs-input w-full bg-transparent outline-none border-b border-transparent focus:border-indigo-300" placeholder="Escriba aquí..."></td>
         </tr>`);
     });
     
@@ -525,6 +525,86 @@ function updateField(id, field, val) {
                 }
             };
         }
+    };
+}
+
+// --- CÓDIGO PARA ALIMENTACIÓN (modal con buen diseño) ---
+function ensureCodigoAlimentacionModal() {
+    let overlay = document.getElementById('codigo-alimentacion-overlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'codigo-alimentacion-overlay';
+    overlay.innerHTML = [
+        '<div id="codigo-alimentacion-modal" role="dialog" aria-labelledby="codigo-alimentacion-title" aria-modal="true">',
+        '  <div class="modal-header">',
+        '    <div class="modal-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>',
+        '    <h3 id="codigo-alimentacion-title">Código de acceso</h3>',
+        '    <p style="color: rgba(255,255,255,0.9); font-size: 0.8rem; margin: 0.25rem 0 0;">Ingrese el código para Alimentación</p>',
+        '  </div>',
+        '  <div class="modal-body">',
+        '    <label for="codigo-alimentacion-input">Código</label>',
+        '    <input type="password" id="codigo-alimentacion-input" autocomplete="off" placeholder="0000" maxlength="10" inputmode="numeric" pattern="[0-9]*">',
+        '    <p class="modal-err" id="codigo-alimentacion-err">Código incorrecto. Intente de nuevo.</p>',
+        '  </div>',
+        '  <div class="modal-footer">',
+        '    <button type="button" class="btn-cancel" id="codigo-alimentacion-cancel">Cancelar</button>',
+        '    <button type="button" class="btn-ok" id="codigo-alimentacion-ok">Verificar</button>',
+        '  </div>',
+        '</div>'
+    ].join('');
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeCodigoAlimentacionModal();
+    });
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function closeCodigoAlimentacionModal() {
+    const overlay = document.getElementById('codigo-alimentacion-overlay');
+    const input = document.getElementById('codigo-alimentacion-input');
+    const err = document.getElementById('codigo-alimentacion-err');
+    if (overlay) overlay.classList.remove('visible');
+    if (input) { input.value = ''; input.classList.remove('error'); }
+    if (err) err.classList.remove('visible');
+}
+
+function abrirAlimentacionSiCodigoCorrecto() {
+    const codigoEsperado = window.CODIGO_ALIMENTACION;
+    if (!codigoEsperado) {
+        document.getElementById('excel1').click();
+        return;
+    }
+    const overlay = ensureCodigoAlimentacionModal();
+    const input = document.getElementById('codigo-alimentacion-input');
+    const err = document.getElementById('codigo-alimentacion-err');
+
+    function onVerify() {
+        const ingresado = (input.value || '').trim();
+        if (ingresado === codigoEsperado) {
+            closeCodigoAlimentacionModal();
+            document.getElementById('excel1').click();
+        } else {
+            input.classList.add('error');
+            err.classList.add('visible');
+            input.focus();
+        }
+    }
+
+    function onCancel() {
+        closeCodigoAlimentacionModal();
+    }
+
+    input.value = '';
+    input.classList.remove('error');
+    if (err) err.classList.remove('visible');
+    overlay.classList.add('visible');
+    input.focus();
+
+    overlay.querySelector('#codigo-alimentacion-cancel').onclick = onCancel;
+    overlay.querySelector('#codigo-alimentacion-ok').onclick = onVerify;
+    input.onkeydown = function(e) {
+        if (e.key === 'Enter') onVerify();
+        if (e.key === 'Escape') onCancel();
     };
 }
 

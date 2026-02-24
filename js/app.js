@@ -1455,24 +1455,13 @@ async function syncWithGoogleSheetsAuto() {
     lastSyncTime = now;
     
     try {
-        // Solo sincronizar si ya hay token (no pedir sesión ni abrir popup)
-        const savedToken = localStorage.getItem('googleAccessToken');
-            return; // No autenticado, saltar sincronización
-        }
-        
-        // Verificar autenticación (con timeout para no bloquear)
         const authPromise = ensureAuthenticated();
         const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(false), 5000));
         const isAuthenticated = await Promise.race([authPromise, timeoutPromise]);
-        
         if (!isAuthenticated) {
-            isSyncing = false;
-        if (!savedToken || savedToken === '') {
             isSyncing = false;
             return;
         }
-        
-        // Leer datos de Google Sheets con timeout
         const readPromise = readFromGoogleSheets(currentTemplate);
         const readTimeout = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Timeout leyendo Google Sheets')), 20000)

@@ -158,16 +158,15 @@ function maybeEnableButtons() {
     }
 }
 
-// No pedir sesión automáticamente al entrar; el usuario usa el botón "Iniciar sesión"
+// No pedir sesión ni mostrar mensajes al cargar; el usuario usa el botón "Iniciar sesión"
 async function autoAuthenticateIfNeeded() {
     const savedToken = localStorage.getItem('googleAccessToken');
     
     if (!savedToken || savedToken === '') {
-        console.log('🔐 Sin sesión. Usa el botón "Iniciar sesión" cuando quieras conectar con Google.');
         return;
     }
     
-    // Si hay token guardado, validarlo en segundo plano (sin abrir popup)
+    // Validar token en segundo plano sin mostrar ningún mensaje
     accessToken = savedToken;
     try {
         const sheetId = getSheetId('Ambulatorio');
@@ -175,11 +174,6 @@ async function autoAuthenticateIfNeeded() {
         if (!testResponse.ok && testResponse.status === 401) {
             accessToken = null;
             localStorage.removeItem('googleAccessToken');
-            if (typeof notify === 'function') {
-                notify("Sesión expirada", "Haz clic en Iniciar sesión para conectar de nuevo.", "indigo");
-            }
-        } else if (typeof notify === 'function') {
-            notify("Conectado", "Sesión activa con Google Sheets", "success");
         }
     } catch (error) {
         console.log('Error verificando token:', error);
@@ -189,10 +183,7 @@ async function autoAuthenticateIfNeeded() {
 function initializeGoogleAuth() {
     // Google OAuth no funciona abriendo el archivo directo (file://). Debe usarse un servidor local o un dominio.
     if (window.location.protocol === 'file:') {
-        console.warn('⚠️ La app está abierta desde file://. Google no permite OAuth desde file://. Abre la app desde http://localhost (ej: npx serve .) y añade ese origen en Google Cloud Console.');
-        if (typeof notify === 'function') {
-            notify("Google no permite inicio de sesión desde archivo local", "Abre la app desde http://localhost (ver OAUTH_CONFIG.md)", "indigo");
-        }
+        console.warn('⚠️ La app está abierta desde file://. Google no permite OAuth desde file://.');
         return;
     }
 

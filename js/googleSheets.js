@@ -10,16 +10,27 @@ let sheetConfig = {
     ambulatorio: SPREADSHEET_ID,
     urgencias: SPREADSHEET_ID
 };
+// Si existe config.local.js con window.SINFONIA_SPREADSHEET_ID, usarlo (no se sube al repo)
+if (typeof window.SINFONIA_SPREADSHEET_ID === 'string' && window.SINFONIA_SPREADSHEET_ID.trim()) {
+    sheetConfig.ambulatorio = sheetConfig.urgencias = window.SINFONIA_SPREADSHEET_ID.trim();
+}
 
-// Cargar configuración guardada
+// Cargar configuración guardada (localStorage tiene prioridad; así no se pierde al actualizar el repo)
 function loadSheetConfig() {
     const saved = localStorage.getItem('sheetConfig');
     if (saved) {
-        sheetConfig = JSON.parse(saved);
+        try {
+            const parsed = JSON.parse(saved);
+            if (parsed.ambulatorio) sheetConfig.ambulatorio = parsed.ambulatorio;
+            if (parsed.urgencias) sheetConfig.urgencias = parsed.urgencias;
+        } catch (e) { console.warn('sheetConfig en localStorage inválido:', e); }
         const sheetIdAmb = document.getElementById('sheet-id-amb');
         const sheetIdUrg = document.getElementById('sheet-id-urg');
         if (sheetIdAmb) sheetIdAmb.value = sheetConfig.ambulatorio || '';
         if (sheetIdUrg) sheetIdUrg.value = sheetConfig.urgencias || '';
+    }
+    if (typeof window.SINFONIA_SPREADSHEET_ID === 'string' && window.SINFONIA_SPREADSHEET_ID.trim()) {
+        sheetConfig.ambulatorio = sheetConfig.urgencias = window.SINFONIA_SPREADSHEET_ID.trim();
     }
     
     const clientId = localStorage.getItem('googleClientId');
@@ -383,7 +394,8 @@ function checkAuthStatus() {
 
 // Obtener Spreadsheet ID (único para ambas pestañas)
 function getSheetId(template) {
-    return SPREADSHEET_ID;
+    const id = template === 'Ambulatorio' ? sheetConfig.ambulatorio : sheetConfig.urgencias;
+    return (id && id.trim()) ? id.trim() : SPREADSHEET_ID;
 }
 
 // Obtener nombre de la pestaña según template
@@ -603,12 +615,17 @@ async function writeToGoogleSheets(template, data) {
     }
 }
 
-// Crear backup diario
+// Nombre fijo de la hoja de copia de seguridad por sección (se actualiza en la misma hoja, no se crea una nueva cada vez)
+function getBackupSheetName(template) {
+    return template === 'Ambulatorio' ? 'Backup_Ambulatorio' : 'Backup_Urgencias';
+}
+
+// Crear/actualizar backup en una sola hoja fija por sección (no crea hoja nueva cada vez)
 async function createDailyBackup(template) {
     const sheetId = getSheetId(template);
     const sheetName = getSheetName(template);
+    const backupSheetName = getBackupSheetName(template);
     
-    // Validar y refrescar token si es necesario
     try {
         await validateToken();
     } catch (error) {
@@ -619,59 +636,63 @@ async function createDailyBackup(template) {
     if (!sheetId || !accessToken) return;
 
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const backupSheetName = `Backup_${sheetName}_${today}`;
-        
-        // Leer datos actuales desde la pestaña correspondiente
+        // Obtener lista de hojas del libro para ver si ya existe la hoja de backup
+        const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets(properties(title))&access_token=${accessToken}`;
+        const metaRes = await fetchWithRetry(metaUrl);
+        if (!metaRes.ok) return;
+        const meta = await metaRes.json();
+        const sheetExists = (meta.sheets || []).some(s => (s.properties || {}).title === backupSheetName);
+
+        if (!sheetExists) {
+            const createSheetUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate?access_token=${accessToken}`;
+            const createSheetResponse = await fetchWithRetry(createSheetUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    requests: [{
+                        addSheet: {
+                            properties: { title: backupSheetName }
+                        }
+                    }]
+                })
+            });
+            if (!createSheetResponse.ok) {
+                console.error('Error creando hoja de backup:', await createSheetResponse.text());
+                return;
+            }
+        }
+
+        // Leer datos actuales desde la pestaña Ambulatorio o Urgencias
         const data = await readFromGoogleSheets(template);
         
-        // Crear nueva hoja de backup en el mismo spreadsheet
-        const createSheetUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate?access_token=${accessToken}`;
-        const createSheetResponse = await fetchWithRetry(createSheetUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                requests: [{
-                    addSheet: {
-                        properties: {
-                            title: backupSheetName
-                        }
-                    }
-                }]
-            })
+        const values = [['Factura', 'Valor', 'Fecha', 'Vencimiento', 'Entidad', 'Facturador', 'Estado Emp', 'Fecha Emp', 'Estado Rad', 'Fecha Rad', 'Estado Radicación', 'Fecha Radicación', 'Observación', 'Año', 'Mes']];
+        data.forEach(item => {
+            values.push([
+                item.factura || '',
+                item.valor || 0,
+                item.fecha || '',
+                item.vencimiento || '',
+                item.entidad || '',
+                item.facturador || '',
+                item.estadoEmp || '',
+                item.fechaEmp || '',
+                item.estadoRad || '',
+                item.fechaRad || '',
+                item.estadoRadicacion || 'Pendiente',
+                item.fechaRadicacion || '',
+                item.obs || '',
+                item.year || currentYear,
+                item.mes !== undefined ? item.mes : currentMonth
+            ]);
         });
 
-        if (createSheetResponse.ok) {
-            // Escribir datos en la hoja de backup usando formato SheetName!A1:Z
-            const values = [['Factura', 'Valor', 'Fecha', 'Vencimiento', 'Entidad', 'Facturador', 'Estado Emp', 'Fecha Emp', 'Estado Rad', 'Fecha Rad', 'Estado Radicación', 'Fecha Radicación', 'Observación', 'Año', 'Mes']];
-            data.forEach(item => {
-                values.push([
-                    item.factura || '',
-                    item.valor || 0,
-                    item.fecha || '',
-                    item.vencimiento || '',
-                    item.entidad || '',
-                    item.facturador || '',
-                    item.estadoEmp || '',
-                    item.fechaEmp || '',
-                    item.estadoRad || '',
-                    item.fechaRad || '',
-                    item.estadoRadicacion || 'Pendiente',
-                    item.fechaRadicacion || '',
-                    item.obs || '',
-                    item.year || currentYear,
-                    item.mes !== undefined ? item.mes : currentMonth
-                ]);
-            });
-
-            const backupRange = `${backupSheetName}!A1:Z10000`;
-            const backupUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(backupRange)}?valueInputOption=RAW&access_token=${accessToken}`;
-            await fetchWithRetry(backupUrl, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ values: values })
-            });
-        }
+        const backupRange = `${backupSheetName}!A1:Z10000`;
+        const backupUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(backupRange)}?valueInputOption=RAW&access_token=${accessToken}`;
+        await fetchWithRetry(backupUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: values })
+        });
     } catch (error) {
         console.error('Error creando backup:', error);
     }

@@ -9,3 +9,6 @@ PRN
 Thumbs.db
 *.swp
 *.swo
+
+# Config local (tu hoja de Google); no subir al repo
+js/config.local.js

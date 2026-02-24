@@ -140,21 +140,11 @@ function gisLoadedCallback() {
         }, 100);
     }
     maybeEnableButtons();
-    // También ejecutar autenticación automática cuando GSI se carga
-    setTimeout(() => {
-        if (tokenClient || (typeof google !== 'undefined' && typeof google.accounts !== 'undefined')) {
-            autoAuthenticateIfNeeded();
-        }
-    }, 1500);
 }
 
 function maybeEnableButtons() {
     if (gapiLoaded && gisLoaded) {
         initializeGoogleAuth();
-        // Después de inicializar, verificar autenticación y pedirla automáticamente si es necesario
-        setTimeout(() => {
-            autoAuthenticateIfNeeded();
-        }, 1000);
     }
 }
 
@@ -878,23 +868,7 @@ window.addEventListener('load', () => {
         }
     }, 5000); // Esperar 5 segundos después de cargar
     
-    // Intentar autenticación automática cuando la página carga completamente
-    // Esto asegura que se ejecute incluso si las APIs ya estaban cargadas
-    setTimeout(() => {
-        if (typeof autoAuthenticateIfNeeded === 'function') {
-            // Verificar si las APIs están disponibles
-            if (typeof google !== 'undefined' && typeof google.accounts !== 'undefined') {
-                if (!tokenClient) {
-                    // Si no hay tokenClient, inicializar primero
-                    if (gisLoaded || (typeof gapi !== 'undefined')) {
-                        initializeGoogleAuth();
-                    }
-                }
-                // Ejecutar autenticación automática
-                autoAuthenticateIfNeeded();
-            }
-        }
-    }, 2000); // Esperar 2 segundos para que todo esté listo
+    // No ejecutar autenticación al cargar; el usuario usa el botón "Iniciar sesión"
 });
 
 // Inicializar cuando las APIs estén listas

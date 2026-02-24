@@ -508,7 +508,7 @@ function updateField(id, field, val) {
                 if (typeof readFromGoogleSheets === 'function' && typeof writeToGoogleSheets === 'function') {
                     setTimeout(async () => {
                         try {
-                            const savedToken = sessionStorage.getItem('googleAccessToken');
+                            const savedToken = localStorage.getItem('googleAccessToken');
                             if (!savedToken) return;
                             
                             let allData = await readFromGoogleSheets(currentTemplate);
@@ -1455,19 +1455,9 @@ async function syncWithGoogleSheetsAuto() {
     lastSyncTime = now;
     
     try {
-        // Verificar token guardado
-        const savedToken = sessionStorage.getItem('googleAccessToken');
+        // Solo sincronizar si ya hay token (no pedir sesión ni abrir popup)
+        const savedToken = localStorage.getItem('googleAccessToken');
         if (!savedToken || savedToken === '') {
-            isSyncing = false;
-            return; // No autenticado, saltar sincronización
-        }
-        
-        // Verificar autenticación (con timeout para no bloquear)
-        const authPromise = ensureAuthenticated();
-        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(false), 5000));
-        const isAuthenticated = await Promise.race([authPromise, timeoutPromise]);
-        
-        if (!isAuthenticated) {
             isSyncing = false;
             return;
         }

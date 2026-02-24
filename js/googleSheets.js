@@ -242,7 +242,6 @@ function initializeGoogleAuth() {
 
 function authenticateGoogle() {
     if (!tokenClient) {
-        // Intentar inicializar si aún no está inicializado
         if (gapiLoaded && gisLoaded) {
             initializeGoogleAuth();
         } else {
@@ -250,16 +249,35 @@ function authenticateGoogle() {
             return;
         }
     }
-    tokenClient.requestAccessToken({ prompt: 'consent' });
+    if (tokenClient) {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
 }
 
-// Botón "Iniciar sesión": abre el popup de Google (no se pide automáticamente al entrar)
+// Botón "Iniciar sesión": espera a que las APIs carguen si hace falta y abre el popup
 function iniciarSesionGoogle() {
     if (window.location.protocol === 'file:') {
         if (typeof notify === 'function') notify("Abrir desde una URL", "Para iniciar sesión con Google, abre la app desde http://localhost o tu servidor.", "indigo");
         return;
     }
-    authenticateGoogle();
+    function intentarAbrirPopup(intento) {
+        if (typeof google !== 'undefined' && typeof google.accounts !== 'undefined' && typeof google.accounts.oauth2 !== 'undefined') {
+            gisLoaded = true;
+            if (!tokenClient) initializeGoogleAuth();
+            if (tokenClient) {
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+                return true;
+            }
+        }
+        if (intento < 6) {
+            if (typeof notify === 'function') notify("Cargando…", "Esperando APIs de Google. Vuelve a hacer clic en Iniciar sesión en un momento.", "indigo");
+            setTimeout(() => intentarAbrirPopup(intento + 1), 1500);
+        } else {
+            if (typeof notify === 'function') notify("No se pudo cargar", "Recarga la página y haz clic de nuevo en Iniciar sesión.", "indigo");
+        }
+        return false;
+    }
+    intentarAbrirPopup(0);
 }
 
 // Función para asegurar autenticación automática
